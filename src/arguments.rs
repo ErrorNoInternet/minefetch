@@ -7,9 +7,25 @@ pub struct Arguments {
     #[arg(required = true)]
     pub servers: Vec<String>,
 
+    /// Omit list of players
+    #[arg(short, long)]
+    pub no_players: bool,
+
+    /// Print additional information
+    #[arg(short, long)]
+    pub verbose: bool,
+
     /// Print additional debug information
     #[arg(short, long)]
     pub debug: bool,
+
+    /// Override host name sent to server
+    #[arg(short = 'H', long)]
+    pub host: Option<String>,
+
+    /// Maximum width of all lines
+    #[arg(short, long, default_value_t = 60)]
+    pub width: usize,
 
     /// Amount of space after server icon
     #[arg(short, long)]

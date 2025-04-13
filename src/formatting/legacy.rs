@@ -1,17 +1,18 @@
 use crossterm::style::{Color, Stylize};
 
-pub fn format(input: &str) -> Vec<String> {
-    let mut lines = vec![];
-    let mut line = String::new();
-    let mut chars = input.chars().peekable();
+pub fn format(width: usize, input: &str) -> String {
+    let mut output = String::new();
+    let mut chars = input.chars();
+    let mut column = 0;
 
     let mut fg: Option<Color> = None;
     let mut bold = false;
     let mut underline = false;
 
-    while let Some(ch) = chars.next() {
-        if ch == '§'
+    while let Some(char) = chars.next() {
+        if char == '§'
             && let Some(code) = chars.next()
+            && column < width - 3
         {
             match code {
                 '0' => fg = Some(Color::Black),
@@ -38,15 +39,20 @@ pub fn format(input: &str) -> Vec<String> {
                     underline = false;
                 }
                 _ => {
-                    line.push('§');
-                    line.push(code);
+                    output.push('§');
+                    output.push(code);
+                    column += 2;
                 }
             }
-        } else if ch == '\n' {
-            lines.push(line.clone());
-            line.clear();
-        } else {
-            let mut styled = ch.to_string();
+        } else if char == '\n' {
+            if column == width - 3 {
+                output += "...";
+            }
+            output += "\n";
+            column = 0;
+        } else if column < width - 3 {
+            column += 1;
+            let mut styled = char.to_string();
             if let Some(color) = fg {
                 styled = styled.with(color).to_string();
             }
@@ -56,12 +62,12 @@ pub fn format(input: &str) -> Vec<String> {
             if underline {
                 styled = styled.underlined().to_string();
             }
-            line.push_str(&styled);
+            output += &styled;
         }
     }
 
-    if !line.is_empty() {
-        lines.push(line);
+    if column == width - 3 {
+        output += "...";
     }
-    lines
+    output
 }

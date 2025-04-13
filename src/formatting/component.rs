@@ -1,3 +1,4 @@
+use crate::formatting::legacy;
 use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor};
 use serde::Deserialize;
 use std::fmt::Write;
@@ -6,54 +7,60 @@ use std::fmt::Write;
 #[derive(Debug, Deserialize)]
 pub struct TextComponent {
     pub text: String,
+
     #[serde(default)]
     pub extra: Vec<TextComponent>,
+
     #[serde(default)]
     pub color: Option<String>,
+
     #[serde(default)]
     pub bold: bool,
+
     #[serde(default)]
     pub italic: bool,
+
     #[serde(default)]
     pub underlined: bool,
+
     #[serde(default)]
     pub strikethrough: bool,
 }
 
-pub fn format(component: &TextComponent) -> Vec<String> {
+pub fn format(width: usize, component: &TextComponent) -> String {
     let mut output = String::new();
-    format_component(&mut output, component);
-    output.lines().map(ToOwned::to_owned).collect()
+    format_component(width, component, &mut output);
+    output
 }
 
-fn format_component(output: &mut String, component: &TextComponent) {
-    if let Some(color) = component.color.as_deref().and_then(get_color) {
-        let _ = write!(output, "{}", SetForegroundColor(color));
+fn format_component(width: usize, component: &TextComponent, output: &mut String) {
+    macro_rules! append {
+        ($command:expr) => {{
+            let _ = write!(output, "{}", $command);
+        }};
     }
 
+    if let Some(color) = component.color.as_deref().and_then(get_color) {
+        append!(SetForegroundColor(color));
+    }
     if component.bold {
-        let _ = write!(output, "{}", SetAttribute(Attribute::Bold));
+        append!(SetAttribute(Attribute::Bold));
     }
     if component.italic {
-        let _ = write!(output, "{}", SetAttribute(Attribute::Italic));
+        append!(SetAttribute(Attribute::Italic));
     }
     if component.underlined {
-        let _ = write!(output, "{}", SetAttribute(Attribute::Underlined));
+        append!(SetAttribute(Attribute::Underlined));
     }
     if component.strikethrough {
-        let _ = write!(output, "{}", SetAttribute(Attribute::CrossedOut));
+        append!(SetAttribute(Attribute::CrossedOut));
     }
-
-    output.push_str(&component.text);
-    let _ = write!(
-        output,
-        "{}{}",
-        SetAttribute(Attribute::Reset),
-        SetForegroundColor(Color::Reset)
-    );
+    output.push_str(&legacy::format(width, &component.text));
+    append!(SetAttribute(Attribute::Reset));
+    append!(SetForegroundColor(Color::Reset));
 
     for extra in &component.extra {
-        format_component(output, extra);
+        format_component(width, extra, output);
     }
 }
 
