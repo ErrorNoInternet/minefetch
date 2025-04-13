@@ -13,7 +13,7 @@ use crossterm::{
     cursor::{self, MoveRight, MoveTo},
     style::Stylize,
 };
-use formatting::{Pad, component, legacy, pad};
+use formatting::{Pad, component, latency_bar, legacy, pad};
 use image::ImageReader;
 use protocol::ping_server;
 use serde_json::Value;
@@ -52,8 +52,8 @@ async fn lan(args: &Arguments, once: bool) -> Result<()> {
         let (read, addr) = listener.recv_from(&mut buf).await?;
         let data = String::from_utf8_lossy(&buf[..read]);
         if args.debug {
-            println!("{addr}: {data}")
-        };
+            println!("{addr}: {data}");
+        }
 
         if let Some((motd, port)) =
             between(&data, "[MOTD]", "[/MOTD]").zip(between(&data, "[AD]", "[/AD]"))
@@ -68,7 +68,7 @@ async fn lan(args: &Arguments, once: bool) -> Result<()> {
                 break Ok(());
             }
             if !args.no_space {
-                println!()
+                println!();
             }
         }
     }
@@ -158,18 +158,6 @@ fn print_server(
     }
 
     let ms = latency.as_millis().to_string();
-    let latency_line = format!(
-        "{ms} ms {}",
-        match latency.as_millis() {
-            0..=150 => "█",
-            151..=300 => "▆",
-            301..=450 => "▄",
-            451..=600 => "▂",
-            601.. => "▁",
-        }
-        .green()
-        .on_dark_grey()
-    );
     draw_line!(
         "{}{}",
         pad(
@@ -178,38 +166,33 @@ fn print_server(
             command.width * 3 / 4,
             Pad::Left
         ),
-        pad(&latency_line, ms.len() + 5, command.width / 4, Pad::Right),
+        pad(
+            &format!("{ms} ms {}", latency_bar(latency).green().on_dark_grey()),
+            ms.len() + 5,
+            command.width / 4,
+            Pad::Right
+        ),
     );
 
-    let version_line = format!(
+    let version = format!(
         "{} ({})",
         data["version"]["name"]
             .as_str()
-            .context("expected version.name to be a string")?,
+            .context("expected version name to be a string")?,
         ("v".to_string() + &data["version"]["protocol"].to_string())
     );
-    let players_line = format!(
+    let players = format!(
         "{} {} {}",
         data["players"]["online"],
         "/".grey(),
         data["players"]["max"]
     );
-    let players_line_len =
+    let players_len =
         data["players"]["online"].to_string().len() + data["players"]["max"].to_string().len() + 3;
     draw_line!(
         "{}{}",
-        pad(
-            &version_line,
-            version_line.len(),
-            command.width * 3 / 4,
-            Pad::Left
-        ),
-        pad(
-            &players_line,
-            players_line_len,
-            command.width / 4,
-            Pad::Right
-        )
+        pad(&version, version.len(), command.width * 3 / 4, Pad::Left),
+        pad(&players, players_len, command.width / 4, Pad::Right)
     );
 
     let mut players_sample = None;
@@ -273,7 +256,7 @@ fn print_verbose(data: &Value) {
         data["enforcesSecureChat"].as_bool().unwrap_or_default()
     );
     if let Some(value) = data["preventsChatReports"].as_bool() {
-        println!("{}{}", "Prevents chat reports: ".bold(), value)
+        println!("{}{}", "Prevents chat reports: ".bold(), value);
     }
     if let Some(sample) = data["players"]["sample"].as_array() {
         println!("{}", "Player list sample:".bold());
