@@ -1,8 +1,36 @@
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 
 /// Fetch Minecraft server banners
 #[derive(Parser)]
+#[command(version)]
 pub struct Arguments {
+    #[command(subcommand)]
+    pub command: Command,
+
+    /// Print additional debug information
+    #[arg(short, long)]
+    pub debug: bool,
+
+    /// Omit the space between each server
+    #[arg(short, long)]
+    pub no_space: bool,
+}
+
+#[derive(Subcommand)]
+pub enum Command {
+    /// Listen for servers opened to LAN
+    Lan {
+        /// Receive one server and exit
+        #[arg(short, long)]
+        once: bool,
+    },
+
+    Ping(PingCommand),
+}
+
+/// Ping a list of Minercraft servers
+#[derive(Args)]
+pub struct PingCommand {
     /// Minecraft server addresses
     #[arg(required = true)]
     pub servers: Vec<String>,
@@ -11,17 +39,13 @@ pub struct Arguments {
     #[arg(short, long)]
     pub no_players: bool,
 
-    /// Print additional information
-    #[arg(short, long)]
-    pub verbose: bool,
-
-    /// Print additional debug information
-    #[arg(short, long)]
-    pub debug: bool,
-
     /// Override host name sent to server
     #[arg(short = 'H', long)]
     pub host: Option<String>,
+
+    /// Print additional information
+    #[arg(short, long)]
+    pub verbose: bool,
 
     /// Maximum width of all lines
     #[arg(short, long, default_value_t = 60)]

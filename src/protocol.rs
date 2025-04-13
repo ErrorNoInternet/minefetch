@@ -9,7 +9,7 @@ use tokio::{
     net::TcpStream,
 };
 
-pub async fn fetch_server(addr: SocketAddr, host: &str, debug: bool) -> Result<(Value, Duration)> {
+pub async fn ping_server(addr: SocketAddr, host: &str, debug: bool) -> Result<(Value, Duration)> {
     let mut conn = TcpStream::connect(addr).await?;
 
     let mut request = vec![0, 4];

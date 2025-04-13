@@ -4,7 +4,7 @@ mod arguments;
 mod formatting;
 mod protocol;
 
-use arguments::Arguments;
+use arguments::{Arguments, Command, PingCommand};
 use base64::{Engine, prelude::BASE64_STANDARD};
 use clap::Parser;
 use color_eyre::eyre::{ContextCompat, Result};
@@ -15,21 +15,67 @@ use crossterm::{
 };
 use formatting::{Pad, component, legacy, pad};
 use image::ImageReader;
-use protocol::fetch_server;
+use protocol::ping_server;
 use serde_json::Value;
 use std::{
     io::{Cursor, stdout},
+    net::Ipv4Addr,
     time::Duration,
 };
-use tokio::net::lookup_host;
+use tokio::net::{UdpSocket, lookup_host};
 use viuer::{Config, terminal_size};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
-    let args = Arguments::parse();
 
-    for server in &args.servers {
+    let args = Arguments::parse();
+    match args.command {
+        Command::Lan { once } => lan(&args, once).await,
+        Command::Ping(ref command) => ping(&args, command).await,
+    }
+}
+
+async fn lan(args: &Arguments, once: bool) -> Result<()> {
+    fn between<'a>(text: &'a str, start: &str, end: &str) -> Option<&'a str> {
+        let start_index = text.find(start)? + start.len();
+        let end_index = text[start_index..].find(end)? + start_index;
+        Some(&text[start_index..end_index])
+    }
+
+    let address = Ipv4Addr::new(224, 0, 2, 60);
+    let listener = UdpSocket::bind((address, 4445)).await?;
+    listener.join_multicast_v4(address, Ipv4Addr::UNSPECIFIED)?;
+
+    let mut buf = [0u8; 256];
+    loop {
+        let (read, addr) = listener.recv_from(&mut buf).await?;
+        let data = String::from_utf8_lossy(&buf[..read]);
+        if args.debug {
+            println!("{addr}: {data}")
+        };
+
+        if let Some((motd, port)) =
+            between(&data, "[MOTD]", "[/MOTD]").zip(between(&data, "[AD]", "[/AD]"))
+        {
+            println!(
+                "{}\n{}",
+                format!("{}:{}", addr.ip(), port).bold(),
+                motd.grey()
+            );
+
+            if once {
+                break Ok(());
+            }
+            if !args.no_space {
+                println!()
+            }
+        }
+    }
+}
+
+async fn ping(args: &Arguments, command: &PingCommand) -> Result<()> {
+    for (i, server) in command.servers.iter().enumerate() {
         let (addr, host) = if server.contains(':') {
             let (host, port) = server
                 .split_once(':')
@@ -47,16 +93,20 @@ async fn main() -> Result<()> {
             (addr, server.as_str())
         };
         let (data, latency) =
-            fetch_server(addr, args.host.as_ref().map_or(host, |v| v), args.debug).await?;
-        print_server(&args, server, &data, latency)?;
+            ping_server(addr, command.host.as_ref().map_or(host, |v| v), args.debug).await?;
+        print_server(command, server, &data, latency)?;
+
+        if !args.no_space && i < command.servers.len() - 1 {
+            println!();
+        }
     }
 
     Ok(())
 }
 
-fn print_icon(args: &Arguments, data: &Value) -> Result<Option<((u16, u16), u16)>> {
+fn print_icon(command: &PingCommand, data: &Value) -> Result<Option<((u16, u16), u16)>> {
     let mut saved_position = None;
-    if args.icon_size > 0
+    if command.icon_size > 0
         && let Some(favicon) = data
             .get("favicon")
             .and_then(|value| value.as_str())
@@ -64,10 +114,13 @@ fn print_icon(args: &Arguments, data: &Value) -> Result<Option<((u16, u16), u16)
     {
         let mut position = cursor::position()?;
         let space = terminal_size().1 - position.1 - 1;
-        if space < args.icon_size {
-            position.1 = position.1.saturating_sub(args.icon_size - space);
+        if space < command.icon_size {
+            position.1 = position.1.saturating_sub(command.icon_size - space);
         }
-        saved_position = Some((position, args.padding.unwrap_or(args.icon_size * 2 + 1)));
+        saved_position = Some((
+            position,
+            command.padding.unwrap_or(command.icon_size * 2 + 1),
+        ));
 
         let image = ImageReader::new(Cursor::new(BASE64_STANDARD.decode(favicon.1)?))
             .with_guessed_format()?
@@ -76,7 +129,7 @@ fn print_icon(args: &Arguments, data: &Value) -> Result<Option<((u16, u16), u16)
             &image,
             &Config {
                 absolute_offset: false,
-                height: Some(u32::from(args.icon_size)),
+                height: Some(u32::from(command.icon_size)),
                 transparent: true,
                 ..Config::default()
             },
@@ -88,8 +141,13 @@ fn print_icon(args: &Arguments, data: &Value) -> Result<Option<((u16, u16), u16)
     Ok(saved_position)
 }
 
-fn print_server(args: &Arguments, server: &str, data: &Value, latency: Duration) -> Result<()> {
-    let saved_position = print_icon(args, data)?;
+fn print_server(
+    command: &PingCommand,
+    server: &str,
+    data: &Value,
+    latency: Duration,
+) -> Result<()> {
+    let saved_position = print_icon(command, data)?;
     macro_rules! draw_line {
         ($($arg:tt)*) => {
             if let Some((_, column)) = saved_position {
@@ -114,8 +172,13 @@ fn print_server(args: &Arguments, server: &str, data: &Value, latency: Duration)
     );
     draw_line!(
         "{}{}",
-        pad(&server.bold(), server.len(), args.width * 3 / 4, Pad::Left),
-        pad(&latency_line, ms.len() + 5, args.width / 4, Pad::Right),
+        pad(
+            &server.bold(),
+            server.len(),
+            command.width * 3 / 4,
+            Pad::Left
+        ),
+        pad(&latency_line, ms.len() + 5, command.width / 4, Pad::Right),
     );
 
     let version_line = format!(
@@ -138,14 +201,19 @@ fn print_server(args: &Arguments, server: &str, data: &Value, latency: Duration)
         pad(
             &version_line,
             version_line.len(),
-            args.width * 3 / 4,
+            command.width * 3 / 4,
             Pad::Left
         ),
-        pad(&players_line, players_line_len, args.width / 4, Pad::Right)
+        pad(
+            &players_line,
+            players_line_len,
+            command.width / 4,
+            Pad::Right
+        )
     );
 
     let mut players_sample = None;
-    if !args.no_players
+    if !command.no_players
         && let Some(sample) = data["players"]["sample"].as_array()
         && !sample.is_empty()
     {
@@ -153,11 +221,11 @@ fn print_server(args: &Arguments, server: &str, data: &Value, latency: Duration)
     }
     let mut lines_drawn = if players_sample.is_some() { 3 } else { 2 };
     let formatted = if let Ok(ref component) = serde_json::from_value(data["description"].clone()) {
-        Some(component::format(args.width, component))
+        Some(component::format(command.width, component))
     } else {
         data["description"]
             .as_str()
-            .map(|str| legacy::format(args.width, str))
+            .map(|str| legacy::format(command.width, str))
     };
     if let Some(formatted) = formatted {
         for line in formatted.lines() {
@@ -166,7 +234,7 @@ fn print_server(args: &Arguments, server: &str, data: &Value, latency: Duration)
         }
     }
     if players_sample.is_some() || saved_position.is_some() {
-        for _ in lines_drawn..args.icon_size as usize {
+        for _ in lines_drawn..command.icon_size as usize {
             draw_line!();
         }
     }
@@ -180,7 +248,7 @@ fn print_server(args: &Arguments, server: &str, data: &Value, latency: Duration)
                 .map(|name| (name.len(), legacy::format(usize::MAX, name)))
         }) {
             column += len;
-            if column > args.width - 3 {
+            if column > command.width - 3 {
                 names.push(String::from("..."));
                 break;
             }
@@ -189,7 +257,7 @@ fn print_server(args: &Arguments, server: &str, data: &Value, latency: Duration)
         draw_line!("{}", names.join(", ").grey().italic());
     }
 
-    if args.verbose {
+    if command.verbose {
         print_verbose(data);
     }
 
