@@ -31,11 +31,11 @@ pub async fn ping_server(addr: SocketAddr, host: &str, debug: bool) -> Result<(V
 
     let mut buf = vec![0u8; read_varint(&mut conn).await?];
     conn.read_exact(&mut buf).await?;
-    let string = str::from_utf8(&buf)?;
+    let response = String::from_utf8_lossy(&buf);
     if debug {
-        println!("{string}");
+        println!("{response}");
     }
-    Ok((serde_json::from_str(string)?, latency))
+    Ok((serde_json::from_str(&response)?, latency))
 }
 
 async fn read_varint(conn: &mut TcpStream) -> Result<usize> {
