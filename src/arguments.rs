@@ -1,6 +1,6 @@
 use clap::{Args, Parser, Subcommand};
 
-/// Fetch Minecraft server banners
+/// Ping Minecraft servers from your terminal
 #[derive(Parser)]
 #[command(version)]
 pub struct Arguments {
