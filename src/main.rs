@@ -250,13 +250,11 @@ fn print_server(
 fn print_verbose(data: &Value) {
     println!();
 
-    println!(
-        "{}{}",
-        "Enforces secure chat: ".bold(),
-        data["enforcesSecureChat"].as_bool().unwrap_or_default()
-    );
+    if let Some(value) = data["enforcesSecureChat"].as_bool() {
+        println!("{} {}", "Enforces secure chat:".bold(), value);
+    }
     if let Some(value) = data["preventsChatReports"].as_bool() {
-        println!("{}{}", "Prevents chat reports: ".bold(), value);
+        println!("{} {}", "Prevents chat reports:".bold(), value);
     }
     if let Some(sample) = data["players"]["sample"].as_array() {
         println!("{}", "Player list sample:".bold());
