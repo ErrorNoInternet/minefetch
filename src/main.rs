@@ -93,7 +93,7 @@ async fn ping(args: &Arguments, command: &PingCommand) -> Result<()> {
             (addr, server.as_str())
         };
         let (data, latency) =
-            ping_server(addr, command.host.as_ref().map_or(host, |v| v), args.debug).await?;
+            ping_server(addr, command.hosts.get(i).map_or(host, |v| v), args.debug).await?;
         print_server(command, server, &data, latency)?;
 
         if !args.no_space && i < command.servers.len() - 1 {

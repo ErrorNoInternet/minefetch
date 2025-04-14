@@ -39,9 +39,9 @@ pub struct PingCommand {
     #[arg(short, long)]
     pub no_players: bool,
 
-    /// Override host name sent to server
+    /// Override host names sent to server
     #[arg(short = 'H', long)]
-    pub host: Option<String>,
+    pub hosts: Vec<String>,
 
     /// Print additional information
     #[arg(short, long)]
