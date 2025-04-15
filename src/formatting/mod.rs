@@ -24,7 +24,7 @@ pub fn pad<T: ToString>(text: &T, len: usize, width: usize, pad: Pad) -> String 
     string
 }
 
-pub fn latency_bar(duration: Duration) -> char {
+pub const fn latency_bar(duration: Duration) -> char {
     match duration.as_millis() {
         0..=150 => '█',
         151..=300 => '▆',

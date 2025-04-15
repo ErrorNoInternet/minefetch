@@ -1,4 +1,5 @@
 #![feature(let_chains)]
+#![warn(clippy::pedantic, clippy::nursery)]
 
 mod arguments;
 mod formatting;
@@ -203,13 +204,16 @@ fn print_server(
         players_sample = Some(sample);
     }
     let mut lines_drawn = if players_sample.is_some() { 3 } else { 2 };
-    let formatted = if let Ok(ref component) = serde_json::from_value(data["description"].clone()) {
-        Some(component::format(command.width, component))
-    } else {
-        data["description"]
-            .as_str()
-            .map(|str| legacy::format(command.width, str))
-    };
+    let formatted = serde_json::from_value(data["description"].clone())
+        .as_ref()
+        .map_or_else(
+            |_| {
+                data["description"]
+                    .as_str()
+                    .map(|str| legacy::format(command.width, str))
+            },
+            |component| Some(component::format(command.width, component)),
+        );
     if let Some(formatted) = formatted {
         for line in formatted.lines() {
             lines_drawn += 1;
