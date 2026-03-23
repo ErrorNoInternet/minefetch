@@ -195,13 +195,14 @@ fn print_server(
         pad(&players, players_len, command.width / 4, Pad::Right)
     );
 
-    let mut players_sample = None;
-    if !command.no_players
+    let players_sample = if !command.no_players
         && let Some(sample) = data["players"]["sample"].as_array()
         && !sample.is_empty()
     {
-        players_sample = Some(sample);
-    }
+        Some(sample)
+    } else {
+        None
+    };
     let mut lines_drawn = if players_sample.is_some() { 3 } else { 2 };
     let formatted = serde_json::from_value(data["description"].clone())
         .as_ref()

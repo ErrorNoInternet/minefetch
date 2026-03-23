@@ -9,7 +9,7 @@ pub struct TextComponent {
     pub text: String,
 
     #[serde(default)]
-    pub extra: Vec<TextComponent>,
+    pub extra: Vec<Self>,
 
     #[serde(default)]
     pub color: Option<String>,
