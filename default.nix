@@ -1,16 +1,12 @@
 {
   pkgs,
-  rustPlatform,
-  self,
-  lib,
+  craneLib,
 }:
-rustPlatform.buildRustPackage {
+craneLib.buildPackage {
   pname = "minefetch";
-  version = builtins.toString (self.shortRev or self.dirtyShortRev or self.lastModified);
+  version = "0.1.0";
 
-  src = lib.cleanSource ./.;
-
-  cargoLock.lockFile = ./Cargo.lock;
+  src = craneLib.cleanCargoSource ./.;
 
   nativeBuildInputs = with pkgs; [
     clang
