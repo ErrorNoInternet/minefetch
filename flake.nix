@@ -36,7 +36,7 @@
           craneLib = (crane.mkLib pkgs).overrideToolchain fenix.packages.${system}.stable.toolchain;
         in
         {
-          devShells.default = pkgs.mkShell {
+          devShells.default = craneLib.devShell {
             name = "minefetch";
 
             inputsFrom = [ self'.packages.default ];
