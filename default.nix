@@ -2,18 +2,18 @@
   pkgs,
   craneLib,
 }:
+let
+  autoreconf = pkgs.writeShellScriptBin "autoreconf" "exit 0";
+in
 craneLib.buildPackage {
   pname = "minefetch";
   version = "0.1.0";
 
   src = craneLib.cleanCargoSource ./.;
 
-  nativeBuildInputs = with pkgs; [
-    clang
-    mold
-  ];
-
-  buildInputs = with pkgs; [
-    libsixel
+  nativeBuildInputs = [
+    autoreconf
+    pkgs.clang
+    pkgs.mold
   ];
 }
