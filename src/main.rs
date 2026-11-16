@@ -125,12 +125,14 @@ fn print_icon(command: &PingCommand, data: &Value) -> Result<Option<((u16, u16),
         let image = ImageReader::new(Cursor::new(BASE64_STANDARD.decode(favicon.1)?))
             .with_guessed_format()?
             .decode()?;
+        let use_sixel = viuer::get_kitty_support() == viuer::KittySupport::None;
         viuer::print(
             &image,
             &Config {
                 absolute_offset: false,
                 height: Some(u32::from(command.icon_size)),
                 transparent: true,
+                use_sixel,
                 ..Config::default()
             },
         )?;
