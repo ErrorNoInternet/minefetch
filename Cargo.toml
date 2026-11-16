@@ -1,13 +1,13 @@
 [package]
-name = "minefetch"
+name    = "minefetch"
 version = "0.1.0"
 edition = "2024"
 license = "LGPL-3.0-or-later"
 
 [profile.release]
 codegen-units = 1
-lto = true
-strip = true
+lto           = true
+strip         = true
 
 [dependencies]
 base64 = "0"
@@ -23,4 +23,4 @@ tokio = { version = "1", features = [
   "macros",
   "rt-multi-thread",
 ] }
-viuer = { version = "0", features = ["sixel"] }
+viuer = { version = "0", features = ["icy_sixel"] }
